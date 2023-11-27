@@ -1,10 +1,10 @@
 # Grounded
 
-Building blocks for potentially unsafe statics.
+Building blocks for handling potentially unsafe statics.
 
 This crate aims to provide useful and sound components that serve as building blocks for `static` datatypes that are common, and often necessary, in embedded systems.
 
-In some cases, fully self methods and types will be provided. In other cases, "harm reduction" tools will be provided to make it easier to build sound abstractions and avoid undefined behavior.
+In some cases, fully safe methods and types will be provided. In other cases, "harm reduction" tools will be provided to make it easier to build sound abstractions and avoid undefined behavior.
 
 ## License
 
