@@ -3,6 +3,8 @@
 
 use core::{cell::UnsafeCell, mem::MaybeUninit};
 
+use crate::const_init::ConstInit;
+
 /// ## GroundedCell
 ///
 /// [GroundedCell] is a type that contains a single `T`. The contained T is wrapped
@@ -26,6 +28,22 @@ pub struct GroundedCell<T> {
 }
 
 unsafe impl<T: Sync> Sync for GroundedCell<T> {}
+
+impl<T: ConstInit> GroundedCell<T> {
+    /// Create a new GroundedCell with the cell initialized with
+    /// the value of [ConstInit::VAL].
+    ///
+    /// ```rust
+    /// use grounded::uninit::GroundedCell;
+    ///
+    /// static EXAMPLE: GroundedCell<[u8; 1024]> = GroundedCell::const_init();
+    /// ```
+    pub const fn const_init() -> Self {
+        Self {
+            inner: UnsafeCell::new(MaybeUninit::new(T::VAL)),
+        }
+    }
+}
 
 impl<T> GroundedCell<T> {
     /// Create an uninitialized `GroundedCell`.
@@ -55,7 +73,7 @@ impl<T> GroundedCell<T> {
     /// let ptr: *mut u32 = EXAMPLE.get();
     /// assert_ne!(core::ptr::null_mut(), ptr);
     /// ```
-    pub fn get(&'static self) -> *mut T {
+    pub fn get(&self) -> *mut T {
         let mu_ptr: *mut MaybeUninit<T> = self.inner.get();
         let t_ptr: *mut T = mu_ptr.cast::<T>();
         t_ptr
@@ -86,6 +104,26 @@ pub struct GroundedArrayCell<T, const N: usize> {
 
 unsafe impl<T: Sync, const N: usize> Sync for GroundedArrayCell<T, N> {}
 
+impl<T: ConstInit, const N: usize> GroundedArrayCell<T, N> {
+    /// Create a new GroundedArrayCell with all cells initialized with
+    /// the value of [ConstInit::VAL].
+    ///
+    /// If your type's implementation of [ConstInit] happens to be all zeroes, like it
+    /// is for many integer and boolean primitives, it is likely your static will end
+    /// up in `.bss`.
+    ///
+    /// ```rust
+    /// use grounded::uninit::GroundedArrayCell;
+    ///
+    /// static EXAMPLE: GroundedArrayCell<u8, 1024> = GroundedArrayCell::const_init();
+    /// ```
+    pub const fn const_init() -> Self {
+        Self {
+            inner: UnsafeCell::new(MaybeUninit::new(<[T; N] as ConstInit>::VAL)),
+        }
+    }
+}
+
 impl<T, const N: usize> GroundedArrayCell<T, N> {
     /// Create an uninitialized `GroundedArrayCell`.
     ///
@@ -107,7 +145,7 @@ impl<T, const N: usize> GroundedArrayCell<T, N> {
     /// The caller must ensure that no other access is made to the data contained within this
     /// cell for the duration of this function
     #[inline]
-    pub unsafe fn initialize_all_copied(&'static self, val: T)
+    pub unsafe fn initialize_all_copied(&self, val: T)
     where
         T: Copy,
     {
@@ -126,8 +164,7 @@ impl<T, const N: usize> GroundedArrayCell<T, N> {
     /// The caller must ensure that no other access is made to the data contained within this
     /// cell for the duration of this function
     #[inline]
-    pub unsafe fn initialize_all_with<F: FnMut() -> T>(&'static self, mut f: F)
-    {
+    pub unsafe fn initialize_all_with<F: FnMut() -> T>(&self, mut f: F) {
         let (mut ptr, len) = self.get_ptr_len();
         let end = ptr.add(len);
         while ptr != end {
@@ -151,7 +188,7 @@ impl<T, const N: usize> GroundedArrayCell<T, N> {
     /// assert_ne!(core::ptr::null_mut(), ptr);
     /// ```
     #[inline]
-    pub fn as_mut_ptr(&'static self) -> *mut T {
+    pub fn as_mut_ptr(&self) -> *mut T {
         let mu_ptr: *mut MaybeUninit<[T; N]> = self.inner.get();
         let arr_ptr: *mut [T; N] = mu_ptr.cast::<[T; N]>();
         let t_ptr: *mut T = arr_ptr.cast::<T>();
@@ -189,7 +226,7 @@ impl<T, const N: usize> GroundedArrayCell<T, N> {
     ///     * [Self::get_subslice_unchecked()]
     ///     * [Self::get_subslice_mut_unchecked()]
     #[inline]
-    pub fn get_ptr_len(&'static self) -> (*mut T, usize) {
+    pub fn get_ptr_len(&self) -> (*mut T, usize) {
         (self.as_mut_ptr(), N)
     }
 
@@ -209,7 +246,7 @@ impl<T, const N: usize> GroundedArrayCell<T, N> {
     ///   while the reference is live
     /// * `offset` is < N
     #[inline]
-    pub unsafe fn get_element_unchecked(&'static self, offset: usize) -> &'static T {
+    pub unsafe fn get_element_unchecked(&self, offset: usize) -> &'_ T {
         &*self.as_mut_ptr().add(offset)
     }
 
@@ -231,7 +268,7 @@ impl<T, const N: usize> GroundedArrayCell<T, N> {
     /// * `offset` is < N
     #[allow(clippy::mut_from_ref)]
     #[inline]
-    pub unsafe fn get_element_mut_unchecked(&'static self, offset: usize) -> &'static mut T {
+    pub unsafe fn get_element_mut_unchecked(&self, offset: usize) -> &mut T {
         &mut *self.as_mut_ptr().add(offset)
     }
 
@@ -252,7 +289,7 @@ impl<T, const N: usize> GroundedArrayCell<T, N> {
     ///   while the slice is live
     /// * `offset` and `offset + len` are <= N
     #[inline]
-    pub unsafe fn get_subslice_unchecked(&'static self, offset: usize, len: usize) -> &'static [T] {
+    pub unsafe fn get_subslice_unchecked(&self, offset: usize, len: usize) -> &'_ [T] {
         core::slice::from_raw_parts(self.as_mut_ptr().add(offset), len)
     }
 
@@ -274,7 +311,7 @@ impl<T, const N: usize> GroundedArrayCell<T, N> {
     /// * `offset` and `offset + len` are <= N
     #[allow(clippy::mut_from_ref)]
     #[inline]
-    pub unsafe fn get_subslice_mut_unchecked(&'static self, offset: usize, len: usize) -> &'static mut [T] {
+    pub unsafe fn get_subslice_mut_unchecked(&self, offset: usize, len: usize) -> &'_ mut [T] {
         core::slice::from_raw_parts_mut(self.as_mut_ptr().add(offset), len)
     }
 }
