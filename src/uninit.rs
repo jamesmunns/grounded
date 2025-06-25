@@ -264,7 +264,7 @@ impl<T, const N: usize> GroundedArrayCell<T, N> {
     /// * No slices or references of any kind may overlap the produced reference for the duration
     ///   the reference is live
     /// * No modifications (even via pointers) are made to to the element pointed to
-    ///   while the reference is live
+    ///   while the reference is live, except via the returned mutable reference
     /// * `offset` is < N
     #[allow(clippy::mut_from_ref)]
     #[inline]
@@ -307,7 +307,7 @@ impl<T, const N: usize> GroundedArrayCell<T, N> {
     ///   this function
     /// * No ``&` or &mut` slices may overlap the produced slice for the duration the slice is live
     /// * No modifications (even via pointers) are made to data within the range of this slice
-    ///   while the slice is live
+    ///   while the slice is live, except via the returned mutable reference
     /// * `offset` and `offset + len` are <= N
     #[allow(clippy::mut_from_ref)]
     #[inline]
