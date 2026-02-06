@@ -20,14 +20,15 @@ use crate::const_init::ConstInit;
 /// This type may be used to provide inner mutability, when accessed through the
 /// [GroundedCell::get()] interface.
 ///
-/// [GroundedCell] is also `#[repr(transparent)], as are `UnsafeCell` and `MaybeUninit`,
+/// [GroundedCell] is also `#[repr(transparent)]`, as are `UnsafeCell` and `MaybeUninit`,
 /// which means that it will have the same layout and alignment as `T`.
 #[repr(transparent)]
 pub struct GroundedCell<T> {
     inner: UnsafeCell<MaybeUninit<T>>,
 }
 
-unsafe impl<T: Sync> Sync for GroundedCell<T> {}
+unsafe impl<T> Sync for GroundedCell<T> {}
+unsafe impl<T: Send> Send for GroundedCell<T> {}
 
 impl<T: ConstInit> GroundedCell<T> {
     /// Create a new GroundedCell with the cell initialized with
@@ -95,7 +96,7 @@ impl<T> GroundedCell<T> {
 /// This type may be used to provide inner mutability, when accessed through the
 /// [GroundedArrayCell::get_ptr_len()] interface.
 ///
-/// [GroundedArrayCell] is also `#[repr(transparent)], as are `UnsafeCell` and `MaybeUninit`,
+/// [GroundedArrayCell] is also `#[repr(transparent)]`, as are `UnsafeCell` and `MaybeUninit`,
 /// which means that it will have the same layout and alignment as `[T; N]`.
 #[repr(transparent)]
 pub struct GroundedArrayCell<T, const N: usize> {
