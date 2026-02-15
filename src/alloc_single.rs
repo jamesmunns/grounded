@@ -97,6 +97,21 @@ impl<'a, T> SingleBox<'a, T> {
     fn as_ptr(&self) -> *mut T {
         self.single.storage.get()
     }
+
+    /// Consumes and leaks the SingleBox, returning a mutable reference, &'b mut T.
+    ///
+    /// If the underlying AllocSingle has static lifetime, this can return a &'static mut.
+    ///
+    /// This will prevent T's destructor from being called.
+    pub fn leak<'b>(self) -> &'b mut T
+        where T: 'b,
+            'a: 'b,
+    {
+        let value = core::mem::ManuallyDrop::new(self);
+        let ptr = value.as_ptr();
+        // Safety: We leak self, so the reference stays valid as long as T and 'a are valid
+        unsafe { &mut *ptr }
+    }
 }
 
 impl<'a, T> Drop for SingleBox<'a, T> {
@@ -162,5 +177,9 @@ pub mod test {
         // look ma no stack
         let bx3 = SINGLE_DEMO.alloc_const_val().unwrap();
         println!("{:?}", bx3.deref());
+
+        // we can get a &'static mut:
+        let bx3_ref: &'static mut _ = bx3.leak();
+        println!("{:?}", bx3_ref);
     }
 }
